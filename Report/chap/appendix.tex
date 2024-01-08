@@ -1,0 +1,756 @@
+\chapter{Appendix}
+\section{Code}
+\subsection{loaddata.py}\label{Metropolis_Uniform}
+\lstset{style=PythonStyle}
+\begin{lstlisting}
+import numpy as np
+import pandas as pd
+import os
+from tqdm import tqdm
+from datetime import datetime
+
+# This the file loading all data and return them in 3 type classes (before during after) of pademic period
+def generate_filenames(start_year, end_year, pattern):
+    filenames = []
+    if pattern == 0:
+        # Monthly data filenames
+        for year in range(start_year, end_year + 1):
+            for month in range(1, 13):
+                filename = f"dublinbike-historical-data-{year}-{month:02d}.csv"
+                filenames.append(filename)
+    elif pattern == 1:
+        # Quarterly data filenames
+        quarters = [(1, 4), (4, 7), (7, 10), (10, 1)]
+        for year in range(start_year, end_year):
+            for start_month, end_month in quarters:
+                start_date = f"{year}{start_month:02d}01"
+                end_year_shift = year if end_month != 1 else year + 1
+                end_date = f"{end_year_shift}{end_month:02d}01"
+                filename = f"dublinbikes_{start_date}_{end_date}.csv"
+                filenames.append(filename)
+
+    return filenames
+
+
+def read_data():
+    start_year = 2018
+    end_year = 2023
+    df = pd.DataFrame()
+    # Choose 0 for monthly data, 1 for quarterly data
+    for pattern in range(2):
+        file_list = generate_filenames(start_year, end_year, pattern)
+        for file in file_list: # Loading data
+            file_name = "datafiles/" + file
+            if os.path.exists(file_name): 
+                print(f"Load file: {file_name}")
+                data = pd.read_csv(file_name)
+
+                # Unify the colunm indexes
+                data.rename(columns = {"AVAILABLE BIKE STANDS": "AVAILABLE_BIKE_STANDS"}, inplace=True)
+                data.rename(columns = {"AVAILABLE BIKES": "AVAILABLE_BIKES"}, inplace=True)
+                data.rename(columns = {"BIKE STANDS": "BIKE_STANDS"}, inplace=True)
+                
+                df = pd.concat([df, data], axis=0, ignore_index=True)
+    
+    station_info_dict = {}
+    for id in df["STATION ID"]:
+        if id in station_info_dict:
+            continue
+        else:
+            station_info_dict[id] = {
+                "NAME": df[df["STATION ID"] == id]["NAME"].values[0],
+                "ADDRESS": df[df["STATION ID"] == id]["ADDRESS"].values[0],
+                "LATITUDE": df[df["STATION ID"] == id]["LATITUDE"].values[0],
+                "LONGITUDE": df[df["STATION ID"] == id]["LONGITUDE"].values[0]
+            }
+    station_info_dict = dict(sorted(station_info_dict.items(), key = lambda item: item[0]))
+    
+    df["TIME"] = pd.to_datetime(df["TIME"])
+    # Split March 2020 into pre and post pandemic
+    # March 13th, the first day schools were closed 
+    # (https://www.irishtimes.com/health/2023/05/05/covid-emergency-is-over-20-key-moments-of-pandemic-that-changed-the-world/)
+    timepoint_begin = pd.Timestamp('2020-03-13 00:00:00')
+    
+    # Split January 2022 into pre and post pandemic
+    # Jan 28th 2022, the day the HSE stopped releasing COVID-19 figures 
+    # (https://www.irishtimes.com/health/2023/05/05/covid-emergency-is-over-20-key-moments-of-pandemic-that-changed-the-world/)
+    timepoint_end = pd.Timestamp('2022-01-27 23:59:59')
+
+    df = df.drop_duplicates()
+    df_pre = df[df["TIME"] < timepoint_begin]
+    df_dur = df[(df["TIME"] >= timepoint_begin) & (df["TIME"] <= timepoint_end)]
+    df_post = df[df["TIME"] > timepoint_end]
+    
+    return df_pre, df_dur, df_post, station_info_dict
+
+# Round a time string to the nearest 5 minutes in a datetime object
+def round_to_5_minutes(time_stamp: pd.Timestamp) -> datetime:
+    # Parse the input string into a datetime object
+    dt = time_stamp.to_pydatetime()
+
+    # Round down to the nearest 5 minutes
+    rounded_dt = datetime(dt.year, dt.month, dt.day, dt.hour, (dt.minute // 5) * 5)
+
+    return rounded_dt
+
+# Round a time string to the nearest 8 hour in a datetime object
+def round_to_hour(time_stamp: pd.Timestamp) -> datetime:
+    # Parse the input string into a datetime object
+    dt = time_stamp.to_pydatetime()
+
+    # Round down to the nearest day
+    rounded_dt = datetime(dt.year, dt.month, dt.day, (dt.hour // 8) * 8)
+
+    return rounded_dt
+    
+# Round a time string to the nearest a day in a datetime object
+def round_to_day(time_stamp: pd.Timestamp) -> datetime:
+    # Parse the input string into a datetime object
+    dt = time_stamp.to_pydatetime()
+
+    # Round down to the nearest day
+    rounded_dt = datetime(dt.year, dt.month, dt.day)
+
+    return rounded_dt
+    
+# Combine time/dates into one value per time
+def combine_dates(df: pd.DataFrame, period: str) -> pd.DataFrame:
+    # Round times to nearest 5 minutes
+    # tqdm.pandas(desc=f"Rounding {period} times to closest 5 minutes.")
+    # df['TIME'] = df['TIME'].progress_apply(round_to_5_minutes)
+
+    # Round times to nearest a day
+    # tqdm.pandas(desc=f"Rounding {period} times to closest day.")
+    # df['TIME'] = df['TIME'].progress_apply(round_to_day)
+
+    # # Round times to nearest an hour
+    tqdm.pandas(desc=f"Rounding {period} times to closest hour.")
+    df['TIME'] = df['TIME'].progress_apply(round_to_hour)
+
+    # Aggregate times together, with all counts summed
+    return df.groupby(df['TIME'], as_index=False).aggregate({'BIKE_STANDS': 'mean', 'AVAILABLE_BIKE_STANDS': 'mean', 'AVAILABLE_BIKES': 'mean'})
+
+# Combine time/dates of each station into one value per time
+def combine_dates_station(df: pd.DataFrame, info: dict, period: str) -> pd.DataFrame:
+    df_new = pd.DataFrame()
+    for station in info:
+        temp = combine_dates(df[df["STATION ID"] == station], period)
+        temp["STATION_ID"] = station
+        df_new = pd.concat([df_new, temp], axis=0, ignore_index=True)
+    return df_new
+
+
+# Clean data, fill zeros to un-occured station
+from itertools import product
+def clean_data(df:pd.DataFrame, info: dict) -> pd.DataFrame:
+    station_ids = list(info.keys()) # 从字典中提取站点ID
+
+    # 步骤 1: 创建完整的时间序列
+    min_time = df['TIME'].min()
+    max_time = df['TIME'].max()
+    all_times = pd.date_range(start=min_time, end=max_time, freq='8H') #D for day, H for hour, T for minute
+
+    # 为每个站点创建完整的时间序列
+    full_df = pd.DataFrame(list(product(station_ids, all_times)), columns=['STATION_ID', 'TIME'])
+
+    # 合并数据集
+    df = df.set_index(['STATION_ID', 'TIME'])
+    full_df = full_df.set_index(['STATION_ID', 'TIME'])
+    combined_df = full_df.join(df, how='left')
+
+    # 填充缺失值
+    combined_df.fillna(method='ffill', inplace=True)
+    combined_df.reset_index(inplace=True)
+    return combined_df
+
+import json
+def main():
+    df_pre, df_dur, df_post, station_info = read_data()
+    df_pre, df_dur, df_post = combine_dates_station(df_pre, station_info, "pre-pandemic"), combine_dates_station(df_dur, station_info, "pandemic"), combine_dates_station(df_post, station_info, "post-pandemic")
+    
+    df_pre, df_dur, df_post = clean_data(df_pre, station_info), clean_data(df_dur, station_info), clean_data(df_post, station_info)  
+
+    # 存储和读取 pandas DataFrame，
+    df_pre.to_hdf("pre.h5", key='df', mode='w')
+    df_dur.to_hdf("dur.h5", key='df', mode='w')
+    df_post.to_hdf("post.h5", key='df', mode='w')
+
+    # 将字典写入 JSON 文件
+    with open('station_info.json', 'w') as json_file:
+        json.dump(station_info, json_file)
+
+if __name__ == "__main__":
+    main()
+    
+
+\end{lstlisting}
+\subsection{preprocessing.py}\label{Metropolis_Uniform}
+\lstset{style=PythonStyle}
+\begin{lstlisting}
+import numpy as np
+import pandas as pd
+
+import json
+# 从 JSON 文件读取数据到字典
+with open('station_info.json', 'r') as json_file:
+    station_info = json.load(json_file)
+
+# Feature engineering
+def get_featured_data(df, station_info):
+    def get_flow(df):
+        features = ['STATION_ID', 'TIME', 'TAKE_BIKES']
+        data = pd.DataFrame(index=range(df.shape[0] - 1),columns=features)
+    
+        for i in range(1, df.shape[0]):
+            data.iloc[i-1]['STATION_ID'] = df.iloc[i-1]["STATION_ID"]
+            data.iloc[i-1]['TIME'] = df.iloc[i-1]["TIME"]
+        
+            y1 = df.iloc[i-1]["AVAILABLE_BIKE_STANDS"] - df.iloc[i]["AVAILABLE_BIKE_STANDS"]
+            y2 = df.iloc[i-1]["AVAILABLE_BIKES"] - df.iloc[i]["AVAILABLE_BIKES"]
+    
+            # data.iloc[i-1]['BRING_BIKE_STANDS'] = y1
+            # data.iloc[i-1]['TAKE_USING'] = y2 + y1
+            
+            data.iloc[i-1]['TAKE_BIKES'] = y2 + y2 + y1
+        return data
+
+    
+    for idx, id in enumerate(station_info):
+        if idx == 0:
+            y = get_flow(df[df["STATION_ID"] == int(id)])
+        else:
+            y = pd.concat([y, get_flow(df[df["STATION_ID"] == int(id)])], axis = 0)
+    y.index = range(y.shape[0])
+    return y
+
+
+def get_trainable_data(df, isolate_station, period):
+    # Get the start-end TimeStamps
+    if period == 'pre':
+        start = pd.to_datetime("01-08-2018", format='%d-%m-%Y')
+        end = pd.to_datetime("13-03-2020", format='%d-%m-%Y')
+    elif period == 'dur':
+        start = pd.to_datetime("13-03-2020", format='%d-%m-%Y')
+        end = pd.to_datetime("27-01-2022", format='%d-%m-%Y')
+    elif period == 'post':
+        start = pd.to_datetime("27-01-2022", format='%d-%m-%Y')
+        end = pd.to_datetime("25-12-2023", format='%d-%m-%Y')
+    elif period == 'cross_validation':
+        start = pd.to_datetime("01-08-2018", format='%d-%m-%Y')
+        end = pd.to_datetime("31-10-2020", format='%d-%m-%Y')
+
+    
+    # Get full time index
+    t_full = pd.array(pd.DatetimeIndex(df.iloc[:,1]).astype(np.int64)) / 1e9
+    t_start = pd.DataFrame([start]).astype(np.int64) / 1e9
+    t_end = pd.DataFrame([end]).astype(np.int64) / 1e9
+    
+    t = np.extract([np.asarray(t_full >= t_start[0][0]) &  np.asarray(t_full <= t_end[0][0])], t_full)
+    # t.shape
+    
+    # Get the STATION_ID 
+    id = np.extract([np.asarray((t_full>=t_start[0][0])) & np.asarray((t_full<=t_end[0][0]))], df.iloc[:,0]) 
+
+    
+    # Get the sampling time period
+    dt = t[id == 2][1] - t[id == 2][0]
+    # print("Data sampling interval is %d secs." %dt)
+
+    t = (t - t[0]) / 60 / 60 / 24 # convert timestamp to days
+    
+    y = np.extract([np.asarray((t_full>=t_start[0][0])) & np.asarray((t_full<=t_end[0][0]))], df.iloc[:,2]).astype(np.float64)
+    # y.shape
+    y = (y - y.mean())/y.std()
+    
+    if isolate_station:
+        y_2d = []
+        t_2d = []
+        for i in station_info:
+            y_2d.append(y[id == int(i)])
+            t_2d.append(t[id == int(i)])
+        y_2d = np.array(y_2d)
+        t_2d = np.array(t_2d)
+        return y_2d, t_2d, id, dt
+    else:
+        return y, t, id, dt
+
+
+def main(period, isolate_station):
+    # isolate_station = False for 1-dim y, True for 2-dim y
+    if period == 'pre':
+        df_pre = pd.read_hdf('pre.h5', 'df')
+        df = get_featured_data(df_pre, station_info)
+    elif period == 'dur':
+        df_dur = pd.read_hdf('dur.h5', 'df')
+        df = get_featured_data(df_dur, station_info)
+    elif period == 'post':
+        df_post = pd.read_hdf('post.h5', 'df')
+        df = get_featured_data(df_post, station_info)
+    elif period == 'cross_validation':
+        df_pre = pd.read_hdf('pre.h5', 'df')
+        df = get_featured_data(df_pre, station_info)
+        
+    y, t, id, dt = get_trainable_data(df, isolate_station, period)
+    
+    return y, t, id, dt, station_info
+\end{lstlisting}
+
+
+\subsection{train\_LSTM.py}
+\begin{lstlisting}
+import pandas as pd
+import numpy as np
+import sys, math
+import matplotlib.pyplot as plt
+import tensorflow as tf
+epoch = 10
+
+plt.rc('font', size=18); plt.rcParams['figure.constrained_layout.use'] = True
+
+import preprocessing
+isolate_station = False
+y, t, id, dt, station_info = preprocessing.main('cross_validation', isolate_station)
+
+#plot extracted data
+# plt.scatter(t[id==10], y[id==10], c='b', marker='+',s=2)
+# plt.scatter(t[id==4], y[id==4], c='r', marker='+',s=2); plt.show()
+
+
+def feature_all_time_series(q = 3, lag = 3):
+    def feature_time_series(q, lag, plot, y, t, id, dt):
+    # q-step ahead prediction
+        stride = 1
+
+        # m = math.floor(30*7*24*60*60 / dt) # number of samples per month
+        w = math.floor(7*24*60*60 / dt) # number of samples per week
+        d = math.floor(24*60*60 / dt)
+
+        len = y.size - w - lag * w - q
+
+        XX = y[q: q+len: stride]
+            
+        for i in range(1, lag):
+            temp = y[i*w+q: i*w+q+len: stride]
+            XX = np.column_stack((XX, temp))
+
+        for i in range(0, lag):
+            temp = y[i*d+q: i*d+q+len: stride]
+            XX = np.column_stack((XX, temp))
+
+        for i in range(0, lag):
+            temp = y[i+q: i+q+len: stride]
+            XX = np.column_stack((XX, temp))
+
+        yy = y[lag*w+w+q: lag*w+w+q+len: stride]
+        tt = t[lag*w+w+q: lag*w+w+q+len: stride]
+        iidd = id[lag*w+w+q: lag*w+w+q+len: stride]
+        return XX, yy, tt, iidd
+
+    for idx, idd in enumerate(station_info):
+        idd = int(idd)
+        if idd == 1:
+            X, Y, T, ID = feature_time_series(q, lag, True, y[id==idd], t[id==idd], id[id==idd], dt)
+        else:
+            X0, y0, t0, id0 = feature_time_series(q, lag, True, y[id==idd], t[id==idd], id[id==idd], dt)
+            X = np.row_stack((X, X0))
+            Y = np.concatenate((Y, y0))
+            T = np.concatenate((T, t0))
+            ID = np.concatenate((ID, id0))
+    X.shape, Y.shape, T.shape, ID.shape
+    return X, Y, T, ID
+
+
+
+
+
+from sklearn.model_selection import KFold
+from sklearn.metrics import mean_squared_error
+from sklearn.preprocessing import PolynomialFeatures
+def ridge_model():
+    def regression_model(C, input_shape, name_model):
+        # 参数设置
+        input_shape = [input_shape]  # 根据你的数据集输入特征的数量
+
+        if name_model == "Lasso":
+            regularizer = tf.keras.regularizers.l1(1/(2*C))
+        else:
+            regularizer = tf.keras.regularizers.l2(1/(2*C))
+
+        # 创建一个简单的线性模型
+        model = tf.keras.models.Sequential([
+            tf.keras.layers.Dense(
+                units=1,  # 只有一个单元，表示是线性模型
+                input_shape=input_shape,
+                activation='linear',  # 线性激活函数
+                kernel_regularizer=regularizer  # L1 L2 正则化
+            )
+        ])
+        
+        # 编译模型
+        model.compile(optimizer=tf.keras.optimizers.Adam(1e-3),  # 随机梯度下降优化器
+                    loss='mean_squared_error',
+                    metrics=['mse']
+                    )  # 均方误差损失函数
+        model.summary()
+        return model
+            
+    def k_fold_cross_validation(X, y, C_vals, p, name_model):
+        # Initializing the MSE and standard error
+        mean_error = []
+        std_error = []
+        for C in C_vals:
+            # Polynomial Featuring
+            XX = PolynomialFeatures(p).fit_transform(X)
+                    
+            mean_square_error_temp = []
+            kf = KFold(n_splits=5)
+            # Training the model and applying teh cross validation
+            for train, test in kf.split(XX):
+                # Choosing a model
+                # model = Lasso(alpha=1/(2*C), max_iter=10000) if name_model =="Lasso" else Ridge(alpha=1/(2*C))
+                model = regression_model(C, XX.shape[1], name_model)
+                
+                # 训练模型
+                model.fit(XX[train], y[train], 
+                        epochs=epoch, 
+                        batch_size=32, 
+                        validation_split=0.2,
+                        verbose=2
+                        )  # epochs和batch_size根据需要调整
+                
+                predictions = model.predict(XX[test])
+                mean_square_error_temp.append(mean_squared_error(y[test],predictions))
+            mean_error.append(np.array(mean_square_error_temp).mean())
+            std_error.append(np.array(mean_square_error_temp).std())
+
+        return mean_error, std_error
+    
+    mmse_p1, mstde_p1 = k_fold_cross_validation(X, Y, C_vals = [1e-4, 1e-3, 1e-2, 1, 10], p=1, name_model="Lasso")
+    mmse_p2, mstde_p2 = k_fold_cross_validation(X, Y, C_vals = [1e-4, 1e-3, 1e-2, 1, 10], p=2, name_model="Lasso")
+    mmse_p1_r, mstde_p1_r = k_fold_cross_validation(X, Y, C_vals = [1e-4, 1e-3, 1e-2, 1, 10], p=1, name_model="Ridge")
+    mmse_p2_r, mstde_p2_r = k_fold_cross_validation(X, Y, C_vals = [1e-4, 1e-3, 1e-2, 1, 10], p=2, name_model="Ridge")
+
+    return mmse_p1, mstde_p1, mmse_p2, mstde_p2, mmse_p1_r, mstde_p1_r, mmse_p2_r, mstde_p2_r
+
+
+import tensorflow.keras as keras
+import tensorflow.keras.layers as layers
+def lstm_model():
+    
+    def lstm_model(n_features, n_units):
+        # 构建模型
+        model = keras.Sequential()
+        model.add(layers.LSTM(n_units, input_shape=(1, n_features)))
+        model.add(layers.Dense(1))  # 因为您的目标输出是单个值
+
+        model.compile(optimizer='adam', loss='mse', metrics=['mse']) # 选择合适的优化器和损失函数
+        # model.summary()
+        return model
+            
+    def k_fold_cross_validation(X, y, n_units):
+        n_features = X.shape[2]
+        
+        # Initializing the MSE and standard error
+        mean_error = []
+        std_error = []
+        for n_unit in n_units:
+            mean_square_error_temp = []
+            kf = KFold(n_splits=5)
+            # Training the model and applying teh cross validation
+            for train, test in kf.split(X):
+                model = lstm_model(n_features, n_unit)
+                
+                # 训练模型
+                model.fit(X[train], y[train], 
+                        epochs=epoch, 
+                        batch_size=32, 
+                        validation_split=0.2,
+                        verbose=2
+                        )  # epochs和batch_size根据需要调整
+                
+                predictions = model.predict(X[test])
+                mean_square_error_temp.append(mean_squared_error(y[test],predictions))
+            mean_error.append(np.array(mean_square_error_temp).mean())
+            std_error.append(np.array(mean_square_error_temp).std())
+
+        return mean_error, std_error
+    
+    
+    X_LSTM = X.reshape((X.shape[0], 1, X.shape[1]))
+    mse_lstm, stde_lstm = k_fold_cross_validation(X_LSTM, Y, [1,10,50,100,1000])
+    return mse_lstm, stde_lstm
+    
+def main():
+    print("Start 5-fold cross validation to Regression Models")
+    mmse_p1, mstde_p1, mmse_p2, mstde_p2, mmse_p1_r, mstde_p1_r, mmse_p2_r, mstde_p2_r = ridge_model()
+    print("Start 5-fold cross validation to LSTM Models")
+    mse_lstm, stde_lstm = lstm_model()
+    print("SUCCESS")
+
+if __name__ == '__main__':
+    main()
+\end{lstlisting}
+
+\begin{lstlisting}
+import pandas as pd
+import numpy as np
+import sys, math
+import matplotlib.pyplot as plt
+
+plt.rc('font', size=18); plt.rcParams['figure.constrained_layout.use'] = True
+
+import preprocessing
+
+isolate_station = False
+y, t, id, dt, station_info = preprocessing.main('pre', isolate_station)
+
+
+def feature_all_time_series(q = 3, lag = 3):
+    def feature_time_series(q, lag, plot, y, t, id, dt):
+    # q-step ahead prediction
+        stride = 1
+
+        # m = math.floor(30*7*24*60*60 / dt) # number of samples per month
+        w = math.floor(7*24*60*60 / dt) # number of samples per week
+        d = math.floor(24*60*60 / dt)
+
+        len = y.size - w - lag * w - q
+
+        XX = y[q: q+len: stride]
+            
+        for i in range(1, lag):
+            temp = y[i*w+q: i*w+q+len: stride]
+            XX = np.column_stack((XX, temp))
+
+        for i in range(0, lag):
+            temp = y[i*d+q: i*d+q+len: stride]
+            XX = np.column_stack((XX, temp))
+
+        for i in range(0, lag):
+            temp = y[i+q: i+q+len: stride]
+            XX = np.column_stack((XX, temp))
+
+        yy = y[lag*w+w+q: lag*w+w+q+len: stride]
+        tt = t[lag*w+w+q: lag*w+w+q+len: stride]
+        iidd = id[lag*w+w+q: lag*w+w+q+len: stride]
+        return XX, yy, tt, iidd
+
+    for idx, idd in enumerate(station_info):
+        idd = int(idd)
+        if idd == 1:
+            X, Y, T, ID = feature_time_series(q, lag, True, y[id==idd], t[id==idd], id[id==idd], dt)
+        else:
+            X0, y0, t0, id0 = feature_time_series(q, lag, True, y[id==idd], t[id==idd], id[id==idd], dt)
+            X = np.row_stack((X, X0))
+            Y = np.concatenate((Y, y0))
+            T = np.concatenate((T, t0))
+            ID = np.concatenate((ID, id0))
+    X.shape, Y.shape, T.shape, ID.shape
+    return X, Y, T, ID
+
+
+
+X, Y, T, ID = feature_all_time_series(q = 3, lag = 3)
+
+# 在训练之前，确保 x_train 和 x_test 的形状是 (样本数, 1, 特征数)
+X_LSTM = X.reshape((X.shape[0], 1, 9))
+X_LSTM.shape
+
+
+from sklearn.model_selection import train_test_split
+x_train, x_test, y_train, y_test = train_test_split(X_LSTM, Y, test_size=0.2)
+x_train.shape, x_test.shape, y_train.shape, y_test.shape
+
+import tensorflow as tf
+import tensorflow.keras as keras
+import tensorflow.keras.layers as layers
+
+from tensorflow.keras.callbacks import EarlyStopping
+
+n_features = X_LSTM.shape[-1]  # 特征数量
+n_units = 100     # LSTM层单元数量
+
+model = keras.Sequential()
+model.add(layers.LSTM(n_units, input_shape=(1, n_features)))
+model.add(layers.Dense(1))  # 因为您的目标输出是单个值
+
+model.compile(optimizer=tf.keras.optimizers.Adam(1e-3), loss='mse', metrics=['mse']) # 选择合适的优化器和损失函数
+model.summary()
+early_stopping = EarlyStopping(monitor='val_loss', patience=10, min_delta=0.0001, mode='min', verbose=1, restore_best_weights=True)
+
+history = model.fit(x_train, y_train, epochs=100, batch_size=32, validation_split=0.2, callbacks=[early_stopping])
+
+model.save('model/LSTM')
+
+fig = plt.figure(figsize=(5,5), dpi=100)
+plt.plot(history.epoch, history.history['mse'], label = 'Training', color='r')
+plt.plot(history.epoch, history.history['val_mse'], label = 'Validation', color='b')
+plt.title('Training history')
+plt.xlabel('Epoch')
+plt.ylabel('Mean Square Error')
+plt.legend(loc='upper right')
+plt.grid()
+plt.xlim([-5,70])
+plt.savefig('fig4.png')
+# plt.show()
+
+model.evaluate(x_train, y_train);model.evaluate(x_test, y_test)
+\end{lstlisting}
+
+\subsection{predictions\_LSTM.py}
+\begin{lstlisting}
+import tensorflow as tf
+import tensorflow.keras as keras
+
+import pandas as pd
+import numpy as np
+import sys, math
+import matplotlib.pyplot as plt
+
+import preprocessing
+
+plt.rc('font', size=18); plt.rcParams['figure.constrained_layout.use'] = True
+
+def feature_all_time_series(q = 3, lag = 3):
+    def feature_time_series(q, lag, plot, y, t, id, dt):
+    # q-step ahead prediction
+        stride = 1
+
+        # m = math.floor(30*7*24*60*60 / dt) # number of samples per month
+        w = math.floor(7*24*60*60 / dt) # number of samples per week
+        d = math.floor(24*60*60 / dt)
+
+        len = y.size - w - lag * w - q
+
+        XX = y[q: q+len: stride]
+            
+        for i in range(1, lag):
+            temp = y[i*w+q: i*w+q+len: stride]
+            XX = np.column_stack((XX, temp))
+
+        for i in range(0, lag):
+            temp = y[i*d+q: i*d+q+len: stride]
+            XX = np.column_stack((XX, temp))
+
+        for i in range(0, lag):
+            temp = y[i+q: i+q+len: stride]
+            XX = np.column_stack((XX, temp))
+
+        yy = y[lag*w+w+q: lag*w+w+q+len: stride]
+        tt = t[lag*w+w+q: lag*w+w+q+len: stride]
+        iidd = id[lag*w+w+q: lag*w+w+q+len: stride]
+        return XX, yy, tt, iidd
+
+    for idx, idd in enumerate(station_info):
+        idd = int(idd)
+        if idd == 1:
+            X, Y, T, ID = feature_time_series(q, lag, True, y[id==idd], t[id==idd], id[id==idd], dt)
+        else:
+            X0, y0, t0, id0 = feature_time_series(q, lag, True, y[id==idd], t[id==idd], id[id==idd], dt)
+            X = np.row_stack((X, X0))
+            Y = np.concatenate((Y, y0))
+            T = np.concatenate((T, t0))
+            ID = np.concatenate((ID, id0))
+    X.shape, Y.shape, T.shape, ID.shape
+    return X, Y, T, ID
+
+from sklearn.utils import resample
+
+def bootstrap_evaluate(model, data, labels, n_iterations=100, sample_size=0.2):
+    scores = list()
+    n_size = int(len(data) * sample_size)
+    
+    for i in range(n_iterations):
+        # 准备Bootstrap样本
+        indices = np.random.randint(0, len(data), n_size)
+        sample_data, sample_labels = data[indices], labels[indices]
+        
+        # 评估模型
+        loss, accuracy = model.evaluate(sample_data, sample_labels, verbose=0)
+        scores.append(accuracy)
+    
+    # 分析Bootstrap结果
+    mean_score = np.mean(scores)
+    std_dev = np.std(scores)
+    return scores
+
+
+def main():
+    model = tf.keras.models.load_model('model/LSTM')
+    
+    
+    isolate_station = False
+    y, t, id, dt, station_info = preprocessing.main('pre', isolate_station)
+    y_pre = y; t_pre = t; id_pre = id; dt_pre = dt
+    X_pre, Y_pre, T_pre, ID_pre = feature_all_time_series(q = 3, lag = 3)
+    # 在训练之前，确保 x_train 和 x_test 的形状是 (样本数, 1, 特征数)
+    X_LSTM = X_pre.reshape((X_pre.shape[0], 1, 9))
+    X_LSTM.shape
+    
+    
+    
+    isolate_station = False
+    y, t, id, dt, station_info = preprocessing.main('dur', isolate_station)
+    y_dur = y; t_dur = t; id_dur = id; dt_dur = dt
+    X_dur, Y_dur, T_dur, ID_dur = feature_all_time_series(q = 3, lag = 3)
+    # 在训练之前，确保 x_train 和 x_test 的形状是 (样本数, 1, 特征数)
+    X_LSTM_dur = X_dur.reshape((X_dur.shape[0], 1, 9))
+    X_LSTM_dur.shape
+    
+    
+    
+    isolate_station = False
+    y, t, id, dt, station_info = preprocessing.main('post', isolate_station)
+    y_post = y; t_post = t; id_post = id; dt_post = dt
+    X_post, Y_post, T_post, ID_post = feature_all_time_series(q = 3, lag = 3)
+    # 在训练之前，确保 x_train 和 x_test 的形状是 (样本数, 1, 特征数)
+    X_LSTM_post = X_post.reshape((X_post.shape[0], 1, 9))
+    X_LSTM_post.shape
+    
+    
+    model.evaluate(X_LSTM, Y_pre)
+    scores_pre = bootstrap_evaluate(model, X_LSTM, Y_pre)
+    
+    model.evaluate(X_LSTM_dur, Y_dur)
+    scores_dur = bootstrap_evaluate(model, X_LSTM_dur, Y_dur)
+    
+    model.evaluate(X_LSTM_post, Y_post)
+    scores_post = bootstrap_evaluate(model, X_LSTM_post, Y_post)
+    
+    print("Mean and std of pre-pandemic are:")
+    print(np.mean(scores_pre),np.std(scores_pre))
+    
+    print("Mean and std of pandemic are:")
+    print(np.mean(scores_dur), np.std(scores_dur))
+    
+    print("Mean and std of post-pandemic are:")
+    print(np.mean(scores_post), np.std(scores_post))
+    
+    pred_dur = model.predict(X_LSTM_dur)
+    pred_post = model.predict(X_LSTM_post)
+    
+    
+    figure = plt.figure(figsize=(7,5), dpi=300)
+    plt.scatter(T_dur, Y_dur, s=1, c='b', alpha=0.8, label='Samples')
+    plt.scatter(T_dur, pred_dur , s=1,c='tomato',alpha=0.8, label='Predictions')
+    plt.legend()
+    plt.grid()
+    plt.ylim([-11,11])
+    plt.xlabel("Days (2020-03-13 to 2022-01-27)")
+    plt.ylabel("Normailzed Values")
+    plt.title("Predictions & Samples of Pandemic Period")
+    plt.savefig('fig5.png')
+    plt.show()
+    
+    figure = plt.figure(figsize=(7,5), dpi=300)
+    plt.scatter(T_post, Y_post, s=1, c='b', alpha=0.8, label='Samples')
+    plt.scatter(T_post, pred_post , s=1,c='tomato',alpha=0.8, label='Predictions')
+    plt.legend(loc='lower right')
+    plt.grid()
+    plt.ylim([-10,10])
+    plt.xlabel("Days (2022-01-27 to 2023-12-25)")
+    plt.ylabel("Normailzed Values")
+    plt.title("Predictions & Samples of Pandemic Period")
+    plt.savefig('fig6.png')
+    plt.show()
+\end{lstlisting}

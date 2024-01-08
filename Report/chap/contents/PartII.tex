@@ -1,0 +1,188 @@
+
+    
+\chapter{Q\normalsize{UESTIONS}}
+\titleformat{\paragraph}[runin]
+{\normalsize\itshape\bfseries}{\theparagraph}{1em}{}
+
+\thequestion What is a ROC curve? How can it be used to evaluate the performance of a classifier
+compared with a baseline classifier? Why would you use an ROC curve instead of a
+classification accuracy metric? 
+\refstepcounter{question}
+
+\paragraph{Answer}
+For the two-feature classification task
+which the data are labeled only two type of classes. 
+Conventional choice is linear model $y = \theta^{\text{T}} X$ 
+which is to predict whether label associated with feature vector $X$ is $1$ or $−1$ 
+generally, with decision boundary $\alpha$.
+Commonly used, is the true-positive (TP), false-positive (FP) rates which mean 
+the model predicted the positive label right and false.
+As vary the parameter $\alpha$ the balance of true-positive and false-positive rates.
+A ROC curve is a plot of true positive rate vs false
+positive rate.
+
+\paragraph{Answer}
+The accuracy of predictions is $\frac{TP}{FP+TP}$, thus the idea classifier 
+has 100\% TP and 0\% FP. 
+The idea classifier gives a point $(0,1)$ at the upper-left conner of 
+ROC plot. 
+The baseline classifier which just predict the most frequent feature or 
+just random feature, gives a point on the $y=x$ line.
+So the way of ROC evaluate the performance of classifier is to 
+determine how close of the ROC curve of the classifier to the upper-left conner of 
+the region $[0,1]\times [0,1]$.
+
+\paragraph{Answer}
+Using accuracy as metrics have problem when handle imbalanced datasets.
+If there are 90\% samples are labels as A 10\% as B, the most frequency 
+baseline model will have 90\% accuracy.
+However, this doesn't necessarily indicate good performance in recognizing the minority class
+which means accuracy is not a good assessment.
+ROC curves provide a more comprehensive performance assessment 
+by considering both the true positive rate and false positive rate.
+
+The ROC curve provide a full view of performance under various thresholds $\alpha$.
+While accuracy is based on a specific decision threshold (just one point), 
+which may not always be apparent, 
+especially in cases where some classes are more critical than others. 
+The ROC curve shows how various thresholds affect the performance of classifier.
+
+Also the ROC curve provide full information to designers which allows to 
+choice the threshold $\alpha$ with different tolerance of FT and TP.
+Besides that, the ROC curve make it is easier to compare the performance of 
+different classifiers by visually approximately determine which classifier 
+with which tolerance $\alpha$ is they needed.
+
+\vspace{1em}
+\thequestion Give two examples of situations where a linear regression would give inaccurate
+predictions. Explain your reasoning and what possible solutions you would adopt in each
+situation.
+\refstepcounter{question}
+
+\paragraph*{Answer}
+There are many cases that linear regression models are more likely to give inaccurate
+predictions.
+\paragraph{Example}
+Linear model assume that the liner relationships among the samples which
+are independent and dependent related. 
+Such as the samples sets $\{(x_{k}, y_k)\}_{k=1}^{N}$ where 
+$X = \{x_k\}_{k=1}^{N}$ and $y_{k} = f(x_k) = x_k^2$ (quadratic related).
+The linear model $\widehat{f}(x) = \theta_1 x + \theta_0$ is not able to capture the non-linear relationship in this 
+sample sets.
+Therefore, it will make inaccurate predictions, although it was trained.
+\paragraph{Solution}
+In this case, if keeping using linear model, the solution commonly is to 
+feature engineering the sample set $\{(x_{k}, y_k)\}_{k=1}^{N}$ with $2$ polynomial features.
+The new sample set will be composed by $(x_{k}, x^2_{k}, y_k)$. 
+Furthermore, the linear model $\widehat{f}$ is a equation below
+\[
+    \widehat{y_k} = \widehat{f}(x_{k}, x^2_{k}) 
+    = \theta_2 x_k^2 + \theta_1 x_k + \theta_0
+\]
+At this case, the new linear model trained on featured sample set could learn the quadratic
+relationships among the sample set.
+
+\paragraph{Example}
+Linear model, also other models, have higher chance to make inaccurate predictions
+as long as the samples are not preprocessed well. 
+Such as the presence of out-liner, missing some information and unbalanced samples.
+Take the presence of out-liner as an example.
+
+Since linear regression models are sensitive to the samples which are 
+significantly different with others, 
+especially in the independent variables (predictors).
+They can have a disproportionately large influence on the line of best fit. 
+This can skew the results of the linear model, leading to inaccurate predictions.
+
+\vspace{1em}
+\thequestion The term 'kernel' has different meanings in SVM and CNN models. Explain the two
+different meanings. Discuss why and when the use of SVM kernels and CNN kernels is
+useful, as well as mentioning different types of kernels.
+\refstepcounter{question}
+\paragraph{Explainations}
+In Kernel SVMs, 
+a kernel is a \underline{function} $\kappa$
+used for transforming the data into a higher dimension 
+where a linear separator might be found. 
+It can be represented as $\kappa(x_{i}, x_{j}) = \phi(x_i)^{\text{T}}\phi(x_j)$
+which is the dot product of data points 
+in a transformed feature space 
+enabling the SVM to classify data that 
+is not linearly separable in the original space.
+The primary purpose of using a kernel in SVMs 
+is to solve nonlinear relationships 
+by applying a linear classification approach. 
+Common kernels include linear combination, polynomial, and sigmoid ($\sigma$). 
+
+In CNNs, a kernel (or filter) refers to a small \underline{matrix} used to extract 
+features from input data (especially for image classification tasks such as 
+ImageNet Challenge) through a process called convolution and collectively as 
+convolution layer. 
+The kernel slides (shift) over the input data, 
+performing element-wise multiplication 
+and sum subsequently.
+It effectively capturing patterns such as 
+edges, shapes, and textures. 
+Each kernel in a CNN is trained to identify a specific type 
+of feature in the input, and through multiple layers of 
+convolutions and other operations, 
+CNNs can recognize complex patterns in larger structures such 
+as object detection or facial recognition datasets.
+
+\paragraph{Reasons}
+In many real-world scenarios, data is not linearly separable. 
+Kernel SVMs allow these datasets to be transformed 
+into a higher-dimensional space without loosing no-linear relationships,
+where a linear separator can be found. 
+Moreover, the kernel can be applied in any linear model not just for SVMs.
+The model $\widehat{f}$ in previous question is an example.
+
+In real-word tasks, the input sample is commonly too large to evaluate 
+in single iteration, such as a 4K (4360*2160 pixels) image captioning tasks.
+However, by using a series of various size of kernels 
+(for RGB image data, commonly 3*3*3, 5*5*3, 7*7*3 small kernels, 
+32*32*3, 64*64*3, 96*96*3 large kernels), training them in the process of 
+sliding through data, the computational demands are reduced significantly.
+Besides that, with different size of kernels, the kernels can learn 
+various patterns inside given data which is more complicated to achieve using 
+single matrix multiplication. 
+Moreover, kernels with different size can learning different features, such 
+as using 32*32*3 kernel to learn the feature both in RGB channels, and 
+32*32*1 kernel to lean the feature in one channel. 
+By combining various type of kernels, the CNN model can learn 
+various features in data effectively.
+
+\vspace{1em}
+\thequestion In k-fold cross-validation, a dataset is resampled multiple times. What is the idea behind
+this resampling i.e. why does resampling allow us to evaluate the generalization
+performance of a machine learning model. Give a small example to illustrate. Discuss
+when it is and it is not appropriate to use k-fold cross-validation.
+
+\paragraph{Answer}
+In real-world case, the researchers want to maximize the utilization of 
+collected data. 
+However, splitting the dataset into training dataset and testing dataset,
+a large portion of data will not used for training which 
+have higher chance to be particularly problematic with small datasets. 
+Also called the model has not sufficient generalization performance.
+On the contrast, $k$-fold cross validation is an approach that 
+ensure all sample are utilized for training, but by separating the dataset into 
+$k$ parts. 
+Since using more data for training, the model will have better generalization
+performance.
+
+Besides that, this approach helps researchers identify the 
+data-driven issues like over-fitting and under-fitting, 
+since the model trained on more data.
+After the model trained on better processed dataset, the model will 
+have better performance.
+
+\paragraph{Answer}
+$k$-fold cross-validation 
+is appropriate for small to medium datasets, model selection, 
+hyperparameter tuning, and when a robust estimate of model performance is required. 
+
+$k$-fold cross-validation is not suitable for very large datasets due to 
+computation resource demands, extremely imbalanced datasets, 
+or data with grouped observations, 
+as it may disrupt the inherent structure of the data.

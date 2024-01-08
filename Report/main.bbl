@@ -1,0 +1,27 @@
+\begin{thebibliography}{1}
+
+\bibitem{CityBikedataset}
+Dublin~City Council.
+\newblock Dublinbikes dcc, 2023.
+\newblock \url{https://data.gov.ie/dataset/dublinbikes-api}.
+
+\bibitem{article}
+Sepp Hochreiter and Jürgen Schmidhuber.
+\newblock Long short-term memory.
+\newblock {\em Neural computation}, 9:1735--80, 12 1997.
+
+\bibitem{OHalloran2020Pandemic}
+Mark O'Halloran.
+\newblock Covid emergency is over: 20 key moments of pandemic that changed the
+  world, 2023.
+\newblock
+  \url{https://www.irishtimes.com/health/2023/05/05/covid-emergency-is-over-20-key-moments-of-pandemic-that-changed-the-world/}.
+
+\bibitem{OHalloran2022Pandemic}
+Mark O'Halloran.
+\newblock Covid emergency is over: 20 key moments of pandemic that changed the
+  world, 2023.
+\newblock
+  \url{https://www.irishtimes.com/health/2023/05/05/covid-emergency-is-over-20-key-moments-of-pandemic-that-changed-the-world/}.
+
+\end{thebibliography}

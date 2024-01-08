@@ -1,0 +1,242 @@
+\documentclass[a4paper,11pt]{report}
+\usepackage{geometry}      
+\usepackage{multicol,float}         
+\usepackage{capt-of} 
+\usepackage{booktabs}
+\usepackage{siunitx}
+\edef\oldtt{\ttdefault}
+\usepackage[scaled]{beramono}
+\usepackage[T1]{fontenc}
+\renewcommand{\ttdefault}{\oldtt}
+\newcommand{\bera}[1]{{\fontfamily{fvm}\selectfont \blue{#1}}}
+\geometry{a4paper,left=2cm,right=2.5cm,top=2.5cm,bottom=2.5cm}                 % ... or a4paper or a5paper or ... 
+\usepackage{graphicx}
+% tikz 画图 宏包
+\usepackage{tikz}
+\usepackage{circuitikz}
+
+\usepackage{subfigure} % 多图并列
+\usetikzlibrary{intersections}
+\usetikzlibrary{shapes,arrows,positioning}
+\usepackage{amsmath, amssymb}
+\usepackage{enumerate}
+\usepackage{wrapfig}
+% \usepackage{subcaption}
+
+\setlength\columnsep{0.8cm} %双栏间距长度 
+\usetikzlibrary{shapes.geometric, arrows}
+
+% 英文：自定义 定义、定理、引理 相关命令
+\usepackage{amsthm}
+\newtheorem{myDef}{Def}[section]
+\newtheorem{myTheo}{Theorem}
+\newtheorem{myle}{Lemma}
+\newtheorem*{mypro}{证明}
+% \newtheorem{example}{例}[section]
+\newtheorem{example}{Example}[section]
+
+\usepackage{enumitem}
+% 支持中文
+% \usepackage[UTF8]{ctex}
+
+%行间距
+\renewcommand{\baselinestretch}{1}
+%段间距
+
+%设置图片文件夹
+\usepackage{graphicx}
+\graphicspath{{./img/}}
+
+% 设置字体
+\usepackage{fontspec,xltxtra,xunicode}
+\defaultfontfeatures{Mapping=tex-text}
+\setromanfont[Mapping=tex-text]{Times New Roman}
+\setsansfont[Scale=MatchLowercase,Mapping=tex-text]{Times New Roman}
+% \setmonofont[Scale=MatchLowercase]{}
+
+% 命令定义
+\def\dis{\mathop{}\!\displaystyle}
+
+\def\dif{\mathop{}\!\mathrm{d}}
+\def\Var{\mathop{}\!\mathrm{Var \:}}
+
+\def\sh{\mathop{}\!\mathrm{sh \:}}
+\def\ch{\mathop{}\!\mathrm{ch \:}}
+\def\thx{\mathop{}\!\mathrm{th \:}}
+\def\arsh{\mathop{}\!\mathrm{arsh \:}}
+\def\arch{\mathop{}\!\mathrm{arch \:}}
+\def\arth{\mathop{}\!\mathrm{arth \:}}
+\def\arccot{\mathop{}\!\mathrm{arccot \:}}
+% \title{Microeconomics Note}
+% \author{Michael Lea}
+
+% \setlist[enumerate]{label=(\arabic*)}
+% 修改 chapter section 等 title 的命令形式
+\usepackage{titlesec}%chapter1修改为第1章
+\renewcommand{\thechapter}{\Roman{chapter}}
+\titleformat{\chapter}[hang]
+  {\normalfont\large\centering}{\thechapter. }{0em}{\large}
+\titlespacing*{\chapter}{0pt}{2em}{1em}
+
+% % 重定义 section 的编号为大写字母
+\renewcommand{\thesection}{\arabic{chapter}.\arabic{section}}
+\titleformat{\section}
+{\normalfont\normalsize\itshape}
+{\arabic{chapter}.\arabic{section} }
+{0em}
+{}
+\titlespacing*{\section}{0pt}{1.2em}{0.5em}
+
+\renewcommand{\thesubsection}{\arabic{chapter}.\arabic{section}.\arabic{subsection}}
+\titleformat{\subsection}
+{\normalfont\normalsize\itshape}
+{\arabic{chapter}.\arabic{section}.\arabic{subsection} }
+{0em}
+{}
+\titlespacing*{\subsection}{0pt}{1em}{0.5em}
+
+
+\usetikzlibrary {calc}
+
+% 页码设计
+\usepackage{lastpage}%获得总页数
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhead[C]{Machine Learning}
+\fancyhead[L]{Li Yihai - 23345919}
+\fancyhead[R]{Final Assignment}
+
+%以下命令中L--左侧 R--右侧 C--中间 O--奇数页 E--偶数页
+% \fancyhead[LO,RE]{}%奇数页左侧，偶数页右侧显示页眉
+\fancyfoot[CO,RE]{}%奇数页中间，偶数页右侧页脚为空
+\fancyfoot[LO,CE]{}%奇数页左侧，偶数页中间页脚为空
+\fancyfoot[CO,CE]{\thepage}%奇数页右侧，偶数页左侧显示 当前页 of 总页数
+\renewcommand{\headrulewidth}{0.4pt}%改为0pt即可去掉页眉下面的横线
+\renewcommand{\footrulewidth}{0.4pt}%改为0pt即可去掉页脚上面的横线
+
+
+% Paragraph
+\titleformat{\paragraph}[runin]
+{\normalsize\itshape}{\theparagraph}{1em}{}
+
+\newcounter{question}
+\setcounter{question}{1}
+\renewcommand{\thequestion}{\noindent\arabic{question}. }
+
+% Equation
+% \renewcommand{\theequation}{\footnotesize \thechapter.\arabic{equation}}
+\renewcommand{\theequation}{\footnotesize \arabic{chapter}.\arabic{equation}}
+
+
+% 设置图片caption的样式
+\usepackage{hyperref}
+\usepackage{caption}
+\captionsetup[table]{width=.45\textwidth, labelsep=period}
+
+\counterwithout{figure}{chapter}
+\renewcommand{\figurename}{}
+\captionsetup[figure]{width=0.45\textwidth, labelsep=period}
+\renewcommand{\thefigure}{\normalsize{F}\footnotesize\text{ig \normalsize\arabic{figure}}}
+\renewcommand{\figureautorefname}{Fig.}
+
+\counterwithout{table}{chapter}
+\renewcommand{\tablename}{}
+\renewcommand{\thetable}{{\normalsize{T}\footnotesize\text{ABLE} \normalsize\Roman{table}}}
+
+% 行间距
+\setlength{\arraycolsep}{6pt} 
+\renewcommand{\arraystretch}{1.3} 
+
+\usepackage{listings}
+
+% 用来设置附录中代码的样式
+\usepackage{xpatch}
+\makeatletter
+\xpatchcmd{\chapter}
+  {\if@openright\cleardoublepage\else\clearpage\fi}{\par\relax}
+  {}{}
+\makeatother
+
+\usepackage{blindtext}
+\usepackage{xcolor} % 如果尚未导入
+\definecolor{darkgreen}{rgb}{0.0, 0.5, 0.0}
+\lstdefinestyle{PythonStyle}{
+    language=Python,             
+    basicstyle=\ttfamily\footnotesize,  % 更新字体大小
+    keywordstyle=\color{blue},   
+    stringstyle=\color{orange},  
+    commentstyle=\color{darkgreen},  
+    morecomment=[s][\color{brown}]{"""}{"""},
+    breaklines=true,             
+    numbers=left,                
+    numberstyle=\tiny\color{gray}, % 保持行号的字体为 \tiny
+    showstringspaces=false,      
+    frame=tb,                    
+}
+
+\lstdefinestyle{CStyle}{
+    language=C,                  
+    basicstyle=\ttfamily\footnotesize,  % 更新字体大小
+    keywordstyle=\color{blue},   
+    stringstyle=\color{orange},  
+    commentstyle=\color{darkgreen},  
+    breaklines=true,             
+    numbers=left,                
+    numberstyle=\tiny\color{gray}, % 保持行号的字体为 \tiny
+    showstringspaces=false,      
+    frame=tb,                    
+}
+
+
+\newcommand{\red}[1]{{\color{red}{#1}}}
+\newcommand{\blue}[1]{{\color{blue}{#1}}}
+\newenvironment{Figure}
+  {\par\medskip\noindent\minipage{\linewidth}}
+  {\endminipage\par\medskip}
+
+
+\usepackage{pdfpages}
+\usepackage{pdflscape}
+
+
+\title{Stochastic Methods Homework}
+\author{Li Yihai, 23345919}
+\date{Assignment 3}
+
+
+\begin{document}
+
+% \maketitle
+% \includepdf{chap/hw2_23-24.pdf}
+{
+  \begin{center}
+    \Huge Dublin Bike-usage Assessment of Pandemic by Means of Deep Learning
+  \end{center}
+}
+\vspace*{1em}
+\begin{multicols}{2}
+  \begin{center}
+    Li Yihai \\
+    Trinity College Dublin (TCD)\\
+    School of Mathematics\\
+    Student ID: 23345919 \\
+    Module Code: CS7CS4 \\
+    Assignment: Final
+  \end{center}
+\end{multicols}
+\vspace*{2em}
+
+\begin{multicols}{2}
+\input{chap/contents/data_preprocessing}
+\input{chap/contents/ML_methods}
+\input{chap/contents/evaluation}
+\input{chap/content}
+\input{chap/contents/PartII}
+\end{multicols}
+{
+  \small
+\bibliographystyle{plain}
+\bibliography{bibfile}
+}
+\input{chap/appendix.tex}
+\end{document}
